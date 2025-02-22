@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Filter Test</title>
+    <script>
+        let checkInterval = null; // To store the interval ID
+
+        async function uploadImage() {
+            let fileInput = document.getElementById("imageInput");
+            let vaInput = document.getElementById("vaInput").value;
+            let csInput = document.getElementById("csInput").value;
+
+            if (!fileInput.files.length) {
+                alert("Please select an image.");
+                return;
+            }
+
+            if (!vaInput || !csInput || isNaN(vaInput) || isNaN(csInput)) {
+                alert("Please enter valid numeric VA and CS values.");
+                return;
+            }
+
+            let imageFile = fileInput.files[0];  // Get the selected file
+            let imageName = imageFile.name;  // Get the file name
+
+            let formData = new FormData();
+            formData.append("image", imageFile);
+            formData.append("va", vaInput);
+            formData.append("cs", csInput);
+
+            let response = await fetch("/filter/upload/", {
+                method: "POST",
+                body: formData
+            });
+
+            let result = await response.json();
+
+            // Display image ID and name
+            document.getElementById("status").innerText = "Processing Status: " + result.status;
+            document.getElementById("imageId").value = result.id;
+            document.getElementById("imageName").value = imageName;
+
+            // Start automatically checking the status
+            startAutoCheck(result.id);
+        }
+
+        function startAutoCheck(imageId) {
+            // Stop any existing intervals to prevent duplicates
+            if (checkInterval) clearInterval(checkInterval);
+
+            checkInterval = setInterval(async () => {
+                let response = await fetch(`/filter/status/${imageId}/`);
+                let result = await response.json();
+
+                document.getElementById("status").innerText = "Processing Status: " + result.status;
+
+                if (result.status === "Filtered") {
+                    clearInterval(checkInterval); // Stop checking
+
+                    let imageContainer = document.getElementById("filteredImage");
+                    imageContainer.src = result.filtered_image_url;
+                    imageContainer.style.display = "block";
+                }
+            }, 3000); // Check every 3 seconds
+        }
+
+    </script>
+</head>
+<body>
+    <h1>Test Image Upload & Filtering</h1>
+
+    <input type="file" id="imageInput"><br><br>
+
+    <label for="vaInput">VA:</label>
+    <input type="number" id="vaInput" placeholder="Enter VA value (until hundredths place)" value="1.27"><br><br>
+
+    <label for="csInput">CS:</label>
+    <input type="number" id="csInput" placeholder="Enter CS value (until hundredths place)" value="1.67"><br><br>
+
+    <button onclick="uploadImage()">Upload</button>
+
+    <h3 id="status">Upload Status: Not started</h3>
+
+    <label for="imageId">Image ID:</label>
+    <input type="text" id="imageId" placeholder="Image ID" readonly><br><br>
+
+    <label for="imageName">Image Name:</label>
+    <input type="text" id="imageName" placeholder="Image Name" readonly><br><br>
+
+    <h3>Filtered Image:</h3>
+    <img id="filteredImage" style="display: none; max-width: 400px;">
+
+</body>
+</html>
