@@ -21,9 +21,113 @@ Although this is an API server, a template is implemented for testing purpose
 
 Current: RESTful API
 Stateless, Uses Standard HTTP, Client-Server Architecture
+-----
+## Server setup instructions (Ubuntu)
+
+We use Systemd for background running of Django and Celery.
+
+0. Use Virtual Environment
+```
+source .venv/bin/activate
+```
+
+1. Download redis, Run Redis, Check whether redis is running
+```
+#Checking redis running
+redis-cli ping
+# You should get back
+PONG
+````
+
+2.1 Create a systemd service for Django
+```
+sudo vim /etc/systemd/system/django.service
+```
+```
+[Unit]
+Description=EVA Django Application
+After=network.target
+
+[Service]
+User=bitnami
+Group=bitnami
+WorkingDirectory=/home/bitnami/eva-server
+Environment="PATH=/home/bitnami/eva-server/.venv/bin"
+ExecStart=/home/bitnami/eva-server/.venv/bin/python3 manage.py runserver 0.0.0.0:8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+2.2 Create a systemd service for Celery
+```
+sudo vim /etc/systemd/system/celery.service
+```
+```
+[Unit]
+Description=Celery Worker
+After=network.target django.service
+
+[Service]
+User=bitnami
+Group=bitnami
+WorkingDirectory=/home/bitnami/eva-server
+Environment="PATH=/home/bitnami/eva-server/.venv/bin"
+ExecStart=/home/bitnami/eva-server/.venv/bin/celery -A config worker --loglevel=info
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+3. Reload systemd and Start Services
+```
+# Reload systemd to recognize new services
+sudo systemctl daemon-reload
+
+# Start services
+sudo systemctl start django
+sudo systemctl start celery
+
+# Enable services to start on boot
+sudo systemctl enable django
+sudo systemctl enable celery
+```
+
+4. Check Service Status
+Verify if services are running correctly:
+```
+sudo systemctl status django
+sudo systemctl status celery
+```
+If any service fails, check logs:
+```
+journalctl -u django --no-pager --lines=50
+journalctl -u celery --no-pager --lines=50
+```
+
+5. Manage Services
+```
+# Restart services
+sudo systemctl restart django
+sudo systemctl restart celery
+
+# Stop services
+sudo systemctl stop django
+sudo systemctl stop celery
+```
+
+(6. Installing dependencies)
+```
+# To export pip dependencies from the local:
+pip3 freeze > requirements.txt
+
+#To import the dependencies to the new server:
+pip3 install -r requirements.txt
+```
 
 -----
-## Setup instructions
+## Local setup instructions (Mac)
 
 1. Start redis for celery
 ```
@@ -44,7 +148,7 @@ http://{your-ip}:8000/filter/
 ```
 
 -----
-## Update instructions
+## Update code instructions
 
 If you have updated the model, run:
 ```
@@ -61,7 +165,7 @@ python manage.py flush
 ## URL info
 1. Upload an image
 ```
-curl -X POST -F "image=@path/to/your/image.jpg" http://127.0.0.1:8000/api/upload/
+curl -X POST -F "image=@path/to/your/image.jpg" http://127.0.0.1:8000/upload/
 
 {
     "id": 1,
@@ -71,7 +175,7 @@ curl -X POST -F "image=@path/to/your/image.jpg" http://127.0.0.1:8000/api/upload
 
 2. Check the Status
 ```
-curl http://127.0.0.1:8000/api/status/102/eva1234
+curl http://127.0.0.1:8000/status/<int:image_id>/
 {
     "id": 1,
     "status": "Processing"
