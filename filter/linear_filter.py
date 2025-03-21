@@ -41,31 +41,33 @@ def find_shift(va: float, cs: float) -> tuple[float, float]:
 
 ## iPhone 15 pro max: 6.7 inch, 2796 x 1290 pixels, 460 ppi
 ## iPhone 15 pro : 6.1 inch, 2556 x 1179 pixels, 460 ppi
-def add_filter(img, HShift, VShift, reso=(1080, 1440), screen_size=13.3, camera=True, white_balance=False, ppi=None):
+def add_filter(img, HShift, VShift, screen_size=13.3, camera=True, white_balance=False, ppi=None):
     charIm = deepcopy(img)
     thisHShift = HShift
     thisVShift = VShift
     v, h, c = charIm.shape
+    reso = (v, h)
     # if image not taken by a camera therefore viewing angle depend on the viewing distance
     if not camera:
         logger.info(f"Not Camera")
-        # # Calculate Viewing Angle
-        # # PPI = sqrt((horizontal reso/width in inches)^2 + (vertical reso/height in inches)^2)
-        # # PPcm = PPI/2.54
-        # PPI = np.sqrt(reso[0] ** 2 + reso[1] ** 2) / screen_size
-        # ppcm = PPI / 2.54
-        # PsysicalWidth = charIm.shape[0] / ppcm  # physical width/height of the image on the screen (cm)
-        # PsysicalHeight = charIm.shape[1] / ppcm  # physical width/height of the image on the screen (cm)
-        # distance = 40  # Viewing distance in cm
-        # vh = 2 * math.atan((PsysicalWidth) / (2 * distance)) * (
-        #             180 / math.pi)  # horizontal visual angle of the image at the specified viewing distance
-        # vv = 2 * math.atan((PsysicalHeight) / (2 * distance)) * (
-        #             180 / math.pi)  # vertival visual angle of the image at the specified viewing distance
-        # imgSize = vh * vv  # visual angle of the entire image at the specified viewing distance
-        #
-        # # % hsize=PsysicalWidth/h; % height of a pixel in cm (cm/pixel)
-        # # % vsize=PsysicalHeight/v; % width of a pixel in cm (cm/pixel)
-    else:
+        # Calculate Viewing Angle
+        # PPI = sqrt((horizontal reso/width in inches)^2 + (vertical reso/height in inches)^2)
+        # PPcm = PPI/2.54
+        PPI = np.sqrt(reso[0] ** 2 + reso[1] ** 2) / screen_size
+        ppcm = PPI / 2.54
+        PsysicalWidth = charIm.shape[0] / ppcm  # physical width/height of the image on the screen (cm)
+        PsysicalHeight = charIm.shape[1] / ppcm  # physical width/height of the image on the screen (cm)
+        distance = 40  # Viewing distance in cm
+        vh = 2 * math.atan((PsysicalWidth) / (2 * distance)) * (
+                    180 / math.pi)  # horizontal visual angle of the image at the specified viewing distance
+        vv = 2 * math.atan((PsysicalHeight) / (2 * distance)) * (
+                    180 / math.pi)  # vertival visual angle of the image at the specified viewing distance
+        imgSize = vh * vv  # visual angle of the entire image at the specified viewing distance
+
+        # % hsize=PsysicalWidth/h; % height of a pixel in cm (cm/pixel)
+        # % vsize=PsysicalHeight/v; % width of a pixel in cm (cm/pixel)
+
+    else: # WHEN WE KNOW THE CAMERA MODEL
         logger.info(f"Camera")
         if v > h:
             vv = 71
@@ -132,8 +134,13 @@ def add_filter(img, HShift, VShift, reso=(1080, 1440), screen_size=13.3, camera=
 
     return finalImg
 
+
+import time
 if __name__ == '__main__':
-    imgName = 'IMG_9151.JPG'
+    start_time = time.time()
+
+    imgName = 'architecture-apartment-room-1470945_9pYfwd0.jpg'
+    # imgName = 'IMG_9151.JPG'
     expFolder = '../media/uploads/'
 
     with open(expFolder+imgName, 'rb') as f:
@@ -146,5 +153,9 @@ if __name__ == '__main__':
         image = Image.fromarray(filtered_img)
 
         out_path = os.path.join(expFolder, "filtered_" + imgName)
-        image.save(out_path, format='PNG')  # ✅ Correct way
+        image.save(out_path, format='PNG')
 
+
+    end_time = time.time()
+
+    print("Time: ", end_time - start_time)
