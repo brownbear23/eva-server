@@ -2,17 +2,17 @@ from io import BytesIO
 
 import numpy as np
 from copy import deepcopy
-
 from PIL import Image
 import csv
 import os
 import logging
+import math
 
 
 logger = logging.getLogger(__name__)
 
 # Define the path to the media folder (adjust if needed)
-MEDIA_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "media/csv"))
+MEDIA_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), ".", "static"))
 
 
 def read_csv(file_path):
@@ -39,43 +39,71 @@ def find_shift(va: float, cs: float) -> tuple[float, float]:
     return 0.0, 0.0  # Default return value if no match is found
 
 
-## iPhone 15 pro max: 6.7 inch, 2796 x 1290 pixels, 460 ppi
-## iPhone 15 pro : 6.1 inch, 2556 x 1179 pixels, 460 ppi
-def add_filter(img, HShift, VShift, screen_size=13.3, camera=True, white_balance=False, ppi=None):
+def calculate_fov(sensor_width, sensor_height, focal_length):
+    """
+    Calculate the horizontal and vertical field of view (FOV) in degrees.
+
+    Parameters:
+    - sensor_width: Width of the sensor in millimeters.
+    - sensor_height: Height of the sensor in millimeters.
+    - focal_length: Focal length of the lens in millimeters.
+
+    Returns:
+    - A tuple containing horizontal FOV and vertical FOV in degrees.
+    """
+    # Calculate horizontal FOV
+    h_fov = 2 * math.atan(sensor_width / (2 * focal_length))
+    h_fov_degrees = math.degrees(h_fov)
+
+    # Calculate vertical FOV
+    v_fov = 2 * math.atan(sensor_height / (2 * focal_length))
+    v_fov_degrees = math.degrees(v_fov)
+
+    return h_fov_degrees, v_fov_degrees
+
+
+
+def get_field_view(camera, sensor_h, sensor_w, focal_len, reso):
+
+
+    if camera == "default (fov of 50x70)":
+        # screen_size = 13.3
+        # distance = 40  # Viewing distance in cm
+        # PPI = np.sqrt(reso[0] ** 2 + reso[1] ** 2) / screen_size
+        # ppcm = PPI / 2.54
+        # PsysicalWidth = reso[0] / ppcm  # physical width/height of the image on the screen (cm)
+        # PsysicalHeight = reso[1] / ppcm  # physical width/height of the image on the screen (cm)
+        #
+        # v1 = 2 * math.atan((PsysicalWidth) / (2 * distance)) * (
+        #             180 / math.pi)  # horizontal visual angle of the image at the specified viewing distance
+        # v2 = 2 * math.atan((PsysicalHeight) / (2 * distance)) * (
+        #             180 / math.pi)  # vertival visual angle of the image at the specified viewing distance
+        return 50, 70
+    else: # WHEN WE KNOW THE CAMERA MODEL
+        v1, v2 = calculate_fov(sensor_height=sensor_h, sensor_width=sensor_w, focal_length=focal_len)
+
+    return v1, v2
+
+
+
+
+def add_filter(img, HShift, VShift, camera, sensor_h, sensor_w, focal_len, white_balance=False):
     charIm = deepcopy(img)
     thisHShift = HShift
     thisVShift = VShift
     v, h, c = charIm.shape
     reso = (v, h)
-    # if image not taken by a camera therefore viewing angle depend on the viewing distance
-    if not camera:
-        logger.info(f"Not Camera")
-        # Calculate Viewing Angle
-        # PPI = sqrt((horizontal reso/width in inches)^2 + (vertical reso/height in inches)^2)
-        # PPcm = PPI/2.54
-        PPI = np.sqrt(reso[0] ** 2 + reso[1] ** 2) / screen_size
-        ppcm = PPI / 2.54
-        PsysicalWidth = charIm.shape[0] / ppcm  # physical width/height of the image on the screen (cm)
-        PsysicalHeight = charIm.shape[1] / ppcm  # physical width/height of the image on the screen (cm)
-        distance = 40  # Viewing distance in cm
-        vh = 2 * math.atan((PsysicalWidth) / (2 * distance)) * (
-                    180 / math.pi)  # horizontal visual angle of the image at the specified viewing distance
-        vv = 2 * math.atan((PsysicalHeight) / (2 * distance)) * (
-                    180 / math.pi)  # vertival visual angle of the image at the specified viewing distance
-        imgSize = vh * vv  # visual angle of the entire image at the specified viewing distance
 
-        # % hsize=PsysicalWidth/h; % height of a pixel in cm (cm/pixel)
-        # % vsize=PsysicalHeight/v; % width of a pixel in cm (cm/pixel)
+    v1, v2 = get_field_view(camera, sensor_h, sensor_w, focal_len, reso)
+    imgSize = v1 * v2
+    if v > h:
+        vv = max(v1, v2)
+        vh = min(v1, v2)
+    else:
+        vv = min(v1, v2)
+        vh = max(v1, v2)
 
-    else: # WHEN WE KNOW THE CAMERA MODEL
-        logger.info(f"Camera")
-        if v > h:
-            vv = 71
-            vh = 56
-        else:
-            vh = 71  # iPhone main camera horizontal field of view in degrees
-            vv = 56  # iPhone main camera vertical field of view in degrees
-        imgSize = vh * vv  # visual angle of the entire image
+    # print(f"Field of view vv: {vv}, vh: {vh}")
 
     h = charIm.shape[1]  # horizontal pixel number of the image
     v = charIm.shape[0]  # vertical pixel number of the image
@@ -89,10 +117,10 @@ def add_filter(img, HShift, VShift, screen_size=13.3, camera=True, white_balance
 
         thisimage = charIm[:, :, j].astype(np.float64)
         meanLum = np.mean(thisimage)
-        if thisimage.size == 0:  # ✅ Correct way to check if a NumPy array is empty
+        if thisimage.size == 0:
             raise Exception("thisimage is empty")
 
-        if meanLum is None:  # ✅ Correct way to check if meanLum is missing
+        if meanLum is None:
             raise Exception("meanLum is None")
 
         # If you want to check if meanLum is zero (which might be problematic)
@@ -135,27 +163,32 @@ def add_filter(img, HShift, VShift, screen_size=13.3, camera=True, white_balance
     return finalImg
 
 
+
+
+
+
+
+
+
+
+
 import time
 if __name__ == '__main__':
-    start_time = time.time()
+    # start_time = time.time()
+    #
+    # imgName = 'architecture-apartment-room-1470945_9pYfwd0.jpg'
+    # expFolder = '../media/uploads/'
+    # with open(expFolder+imgName, 'rb') as f:
+    #     img_bytes = f.read()
+    #     img = Image.open(BytesIO(img_bytes)).convert('RGB')
+    #     hor, ver = find_shift(0.57,1.37)
+    #     filtered_img = add_filter(np.array(img, dtype=np.uint8), 1/hor, ver)
+    #     image = Image.fromarray(filtered_img)
+    #     out_path = os.path.join(expFolder, "filtered_" + imgName)
+    #     image.save(out_path, format='PNG')
+    #
+    # end_time = time.time()
+    # print("Time: ", end_time - start_time)
 
-    imgName = 'architecture-apartment-room-1470945_9pYfwd0.jpg'
-    # imgName = 'IMG_9151.JPG'
-    expFolder = '../media/uploads/'
-
-    with open(expFolder+imgName, 'rb') as f:
-        img_bytes = f.read()
-        img = Image.open(BytesIO(img_bytes)).convert('RGB')
-
-
-        hor, ver = find_shift(0.57,1.37)
-        filtered_img = add_filter(np.array(img, dtype=np.uint8), 1/hor, ver)
-        image = Image.fromarray(filtered_img)
-
-        out_path = os.path.join(expFolder, "filtered_" + imgName)
-        image.save(out_path, format='PNG')
-
-
-    end_time = time.time()
-
-    print("Time: ", end_time - start_time)
+    h_fov_degrees, v_fov_degrees = calculate_fov(sensor_height=9.8, sensor_width=7.3, focal_length=6.86)
+    print(h_fov_degrees, v_fov_degrees)

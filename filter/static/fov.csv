@@ -1,0 +1,4 @@
+model,sensor_h,sensor_w,focal_len
+default (fov of 50x70),-1,-1,-1
+manual,-1,-1,-1
+iphone15pro,9.8,7.3,6.86
