@@ -53,7 +53,16 @@ User=bitnami
 Group=bitnami
 WorkingDirectory=/home/bitnami/eva-server
 Environment="PATH=/home/bitnami/eva-server/.venv/bin"
+
+# Run migrations before starting the app
+ExecStartPre=/home/bitnami/eva-server/.venv/bin/python3 manage.py migrate --noinput
+
+# Collect static files before starting the app
+ExecStartPre=/home/bitnami/eva-server/.venv/bin/python3 manage.py collectstatic --noinput
+
+# Start the Django development server
 ExecStart=/home/bitnami/eva-server/.venv/bin/python3 manage.py runserver 0.0.0.0:8000
+
 Restart=always
 
 [Install]
@@ -82,6 +91,9 @@ WantedBy=multi-user.target
 ```
 3. Reload systemd and Start Services
 ```
+# In case systemd is updated
+sudo systemctl daemon-reexec
+
 # Reload systemd to recognize new services
 sudo systemctl daemon-reload
 
@@ -158,6 +170,14 @@ python manage.py migrate
 If you are testing locally and don't mind losing all data, reset the database:
 ```
 python manage.py flush
+```
+To gather all the static files, run:
+```
+python manage.py collectstatic 
+```
+Creating super user:
+```
+python manage.py createsuperuser
 ```
 
 
