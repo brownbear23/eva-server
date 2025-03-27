@@ -181,6 +181,12 @@
 
 <body>
 <h1>Linear Filter</h1>
+<form method="post" action="{% url 'logout' %}">
+    {% csrf_token %}
+    <button type="submit">Logout</button>
+</form>
+<br>
+<br>
 
 <input type="file" id="imageInput"><br><br>
 

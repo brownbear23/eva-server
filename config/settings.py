@@ -13,6 +13,15 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from pathlib import Path
 import os
 
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = "django-insecure-@7e%ko76fevey*hiy)d7=dxej_ddsujac#e3u!v3w6kq1-7$l5"
+
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
+
+
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 MEDIA_URL = '/media/'
@@ -52,6 +61,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+     "config.middleware.LoginRequiredMiddleware",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -59,7 +69,9 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, 'templates')],
+        "DIRS": [os.path.join(BASE_DIR, 'templates'),
+                 os.path.join(BASE_DIR, 'config', 'templates'),
+                 ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -165,3 +177,11 @@ LOGGING = {
     },
 }
 
+
+# Login
+MIDDLEWARE.insert(1, 'config.middleware.LoginRequiredMiddleware')
+
+# Used by Django's built-in authentication system
+LOGIN_URL = '/accounts/login/' # Where to send users if they're not logged in (@login_required)
+LOGIN_REDIRECT_URL = '/filter/' # Where to go after a successful login (filter page for now)
+LOGOUT_REDIRECT_URL = '/accounts/login/' # Where to go after logging out
