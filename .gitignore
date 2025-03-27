@@ -1,2 +1,20 @@
-/.venv/
-/.idea/
+# Virtual environment
+.venv/
+
+# IDE/editor config
+.idea/
+
+# Static/media
+/staticfiles/
+/filter/static/admin/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# SQLite database (optional if you want to exclude DB file)
+db.sqlite3
+
+# Media uploads (optional if you want to exclude user uploads)
+media/uploads/
+media/filtered/
