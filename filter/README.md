@@ -26,9 +26,13 @@ Stateless, Uses Standard HTTP, Client-Server Architecture
 
 We use Systemd for background running of Django and Celery.
 
-0. Use Virtual Environment
+0. Use Virtual Environment & Tun migrate to create the default Django tables
 ```
+python -m venv .venv
 source .venv/bin/activate
+pip install -r requirements.txt
+
+python manage.py migrate
 ```
 
 1. Download redis, Run Redis, Check whether redis is running
