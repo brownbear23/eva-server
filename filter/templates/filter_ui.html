@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,6 +13,11 @@
             let vaInput = document.getElementById("vaInput").value;
             let csInput = document.getElementById("csInput").value;
 
+            let camera = document.getElementById("cameraModel").value;
+            let sensorH = document.getElementById("sensorH").value;
+            let sensorW = document.getElementById("sensorW").value;
+            let focalLen = document.getElementById("focalLen").value;
+
             if (!fileInput.files.length) {
                 alert("Please select an image.");
                 return;
@@ -22,20 +28,42 @@
                 return;
             }
 
-            let imageFile = fileInput.files[0];  // Get the selected file
-            let imageName = imageFile.name;  // Get the file name
+            if (camera === "manual") {
+                if (!sensorH || !sensorW || !focalLen || isNaN(sensorH) || isNaN(sensorW) || isNaN(focalLen)) {
+                    alert("Please enter valid numeric values for sensor height, width, and focal length.");
+                    return;
+                }
+            }
+
+            let imageFile = fileInput.files[0];
+            let imageName = imageFile.name;
 
             let formData = new FormData();
             formData.append("image", imageFile);
             formData.append("va", vaInput);
             formData.append("cs", csInput);
+            formData.append("camera", camera);
+            formData.append("sensor_h", sensorH);
+            formData.append("sensor_w", sensorW);
+            formData.append("focal_len", focalLen);
 
             let response = await fetch("/filter/upload/", {
                 method: "POST",
                 body: formData
             });
 
+            if (!response.ok) {
+                alert("Upload failed. Check your server logs.");
+                return;
+            }
+
             let result = await response.json();
+
+            if (!result.id) {
+                alert("Upload response missing image ID.");
+                console.log("Server response:", result);
+                return;
+            }
 
             // Display image ID and name
             document.getElementById("status").innerText = "Processing Status: " + result.status;
@@ -44,7 +72,8 @@
 
             // Start automatically checking the status
             startAutoCheck(result.id);
-        }
+}
+
 
         function startAutoCheck(imageId) {
             // Stop any existing intervals to prevent duplicates
@@ -62,35 +91,136 @@
                     let imageContainer = document.getElementById("filteredImage");
                     imageContainer.src = result.filtered_image_url;
                     imageContainer.style.display = "block";
+
+                    document.getElementById("openFullSizeBtn").style.display = "inline-block"; // Show the button
                 }
-            }, 3000); // Check every 3 seconds
+            }, 500);
         }
+
+        function openFullSize() {
+            const imageUrl = document.getElementById("filteredImage").src;
+            if (imageUrl) {
+                window.open(imageUrl, "_blank");
+            }
+        }
+
+
+
+        let cameraModels = [];
+
+        window.onload = () => {
+            fetch("{% static 'fov.csv' %}")
+                .then(response => response.text())
+                .then(csvText => {
+                    parseCSV(csvText);
+                    populateModelDropdown();
+                    handleModelChange();  // initialize based on default
+                });
+        };
+
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const header = lines[0].split(',');
+
+            cameraModels = lines.slice(1).map(line => {
+                const values = line.split(',');
+                return {
+                    model: values[0],
+                    sensor_h: parseFloat(values[1]),
+                    sensor_w: parseFloat(values[2]),
+                    focal_len: parseFloat(values[3])
+                };
+            });
+        }
+
+        function populateModelDropdown() {
+            const select = document.getElementById("cameraModel");
+            select.innerHTML = ''; // clear any existing options
+
+            cameraModels.forEach(cam => {
+                const option = document.createElement("option");
+                option.value = cam.model;
+                option.textContent = cam.model;
+                select.appendChild(option);
+            });
+        }
+
+        function handleModelChange() {
+            const selected = document.getElementById("cameraModel").value;
+            const camera = cameraModels.find(cam => cam.model === selected);
+
+            const sensorH = document.getElementById("sensorH");
+            const sensorW = document.getElementById("sensorW");
+            const focalLen = document.getElementById("focalLen");
+
+            if (!camera || selected === "manual") {
+                sensorH.readOnly = false;
+                sensorW.readOnly = false;
+                focalLen.readOnly = false;
+
+                sensorH.value = "";
+                sensorW.value = "";
+                focalLen.value = "";
+            } else {
+                sensorH.readOnly = true;
+                sensorW.readOnly = true;
+                focalLen.readOnly = true;
+
+                sensorH.value = camera.sensor_h;
+                sensorW.value = camera.sensor_w;
+                focalLen.value = camera.focal_len;
+            }
+        }
+
 
     </script>
 </head>
+
+
+
+
 <body>
-    <h1>Test Image Upload & Filtering</h1>
+<h1>Linear Filter</h1>
 
-    <input type="file" id="imageInput"><br><br>
+<input type="file" id="imageInput"><br><br>
 
-    <label for="vaInput">VA:</label>
-    <input type="number" id="vaInput" placeholder="Enter VA value (until hundredths place)" value="1"><br><br>
 
-    <label for="csInput">CS:</label>
-    <input type="number" id="csInput" placeholder="Enter CS value (until hundredths place)" value="1"><br><br>
+<label for="cameraModel">Camera Model:</label>
+<select id="cameraModel" onchange="handleModelChange()">
+    <!-- Options populated by JS -->
+</select><br><br>
 
-    <button onclick="uploadImage()">Upload</button>
+<div id="cameraParams">
+    <label>Sensor Height (mm):</label>
+    <input type="number" id="sensorH" readonly><br><br>
 
-    <h3 id="status">Upload Status: Not started</h3>
+    <label>Sensor Width (mm):</label>
+    <input type="number" id="sensorW" readonly><br><br>
 
-    <label for="imageId">Image ID:</label>
-    <input type="text" id="imageId" placeholder="Image ID" readonly><br><br>
+    <label>Focal Length (mm):</label>
+    <input type="number" id="focalLen" readonly><br><br>
+</div>
 
-    <label for="imageName">Image Name:</label>
-    <input type="text" id="imageName" placeholder="Image Name" readonly><br><br>
 
-    <h3>Filtered Image:</h3>
-    <img id="filteredImage" style="display: none; max-width: 400px;">
+<label for="vaInput">VA:</label>
+<input type="number" id="vaInput" placeholder="Enter VA value (until hundredths place)" value="1"><br><br>
+
+<label for="csInput">CS:</label>
+<input type="number" id="csInput" placeholder="Enter CS value (until hundredths place)" value="1"><br><br>
+
+<button onclick="uploadImage()">Upload</button>
+
+<h3 id="status">Upload Status: Not started</h3>
+
+<label for="imageId">Image ID:</label>
+<input type="text" id="imageId" placeholder="Image ID" readonly><br><br>
+
+<label for="imageName">Image Name:</label>
+<input type="text" id="imageName" placeholder="Image Name" readonly><br><br>
+
+<h3>Filtered Image:</h3>
+<img id="filteredImage" style="display: none; max-width: 400px;">
+<br>
 <button id="openFullSizeBtn" style="display: none;" onclick="openFullSize()">Open Full Size</button>
 
 </body>

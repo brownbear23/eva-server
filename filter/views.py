@@ -25,6 +25,10 @@ def upload_image_api(request):
         try:
             va_value = decimal.Decimal(request.POST.get('va'))
             cs_value = decimal.Decimal(request.POST.get('cs'))
+            camera_value = request.POST.get('camera')
+            sensor_h_value = decimal.Decimal(request.POST.get('sensor_h'))
+            sensor_w_value = decimal.Decimal(request.POST.get('sensor_w'))
+            focal_len_value = decimal.Decimal(request.POST.get('focal_len'))
         except (TypeError, ValueError, decimal.InvalidOperation):
             return JsonResponse({'error': 'Invalid VA or CS values. Must be numeric.'}, status=400)
 
@@ -32,7 +36,11 @@ def upload_image_api(request):
         uploaded_image = UploadedImage.objects.create(
             image=request.FILES['image'],
             va=va_value,
-            cs=cs_value
+            cs=cs_value,
+            camera=camera_value,
+            sensor_h=sensor_h_value,
+            sensor_w=sensor_w_value,
+            focal_len=focal_len_value
         )
 
         # Triggering Celery task to filter the image
